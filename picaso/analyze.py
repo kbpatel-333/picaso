@@ -1,28 +1,32 @@
+# Data analysis / Processing
+import scipy as sp
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+from matplotlib.ticker import StrMethodFormatter
+from bokeh.palettes import Cividis #color palettes
+
+# Data Structures 
+import itertools
 import numpy as np
 import pandas as pd
 import xarray as xr
-import scipy as sp
-from scipy.interpolate import griddata
-cKDTree = sp.spatial.cKDTree
-optimize = sp.optimize
 
-import json
-import matplotlib.pyplot as plt
-import os
+# Astro-Specific
 from astropy.convolution import convolve, Box1DKernel, Gaussian1DKernel
 import astropy.units as u
-import glob
-import itertools
-
-from matplotlib.ticker import StrMethodFormatter
-
-import virga.justdoit as vj
+import virga.justdoit as vj # astro stuff - Cloud condensation for substellar atmospheres
 from .justdoit import inputs, opannection, mean_regrid, u, input_xarray, copy
 
-from bokeh.palettes import Cividis
+# External files / managing files
+import json
+import os
+import glob
+
+# For parallelization 
 from multiprocessing import Pool
 
-
+cKDTree = sp.spatial.cKDTree
+optimize = sp.optimize
 
 class GridFitter(): 
     """
