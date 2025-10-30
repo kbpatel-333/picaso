@@ -172,6 +172,7 @@ class GridFitter():
 
         #loop through grid files to get parameters
         for ct, filename in enumerate(self.list_of_files[grid_name]):
+            ## TODO: Optimize this by parallelization
             ds = xr.open_dataset(filename)
             if save_chem:
                 #grab everything on pressure grid thats not temperature
