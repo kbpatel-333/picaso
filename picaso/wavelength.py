@@ -1,11 +1,17 @@
-import pandas as pd 
+# file management
 import os 
 from .io_utils import read_hdf
-import numpy as np
-__refdata__ = os.environ.get('picaso_refdata')
 import pickle as pk
-import astropy.constants as c
+
+# Data management
+import pandas as pd 
+import numpy as np
 import scipy.interpolate as sci
+
+# Astro - specific
+import astropy.constants as c
+
+__refdata__ = os.environ.get('picaso_refdata')
 
 def get_cld_input_grid(filename_or_grid='wave_EGP.dat',grid661=False):
 	"""
