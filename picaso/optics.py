@@ -121,6 +121,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
         ,y_axis_type='log',height=700, width=600)
 
     #====================== INITIALIZE TAUGAS#======================
+    
     TAUGAS = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
     TAURAY = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
     TAUCLD = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
@@ -168,11 +169,6 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
                             atm.layer['mixingratios'][m[0]].values[:,np.newaxis] *  #nlayer
                             colden/                     #nlayer
                             (mmw*atm.c.amu))   )     #nlayer)]
-
-            TAUGAS[:,:,0] += ADDTAU
-            if plot_opacity: opt_figure.line(1e4/opacityclass.wno, ADDTAU[plot_layer,:], alpha=0.7,legend_label=m[0]+m[1], line_width=3, color=colors[c],
-            muted_color=colors[c], muted_alpha=0.2)
-            if return_mode: taus_by_species[m[0]+m[1]] = ADDTAU
         
         #H- Free-Free
         elif (m[0] == "H-") and (m[1] == "ff"):
@@ -182,13 +178,6 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
                             atm.layer['electrons'][:,np.newaxis] *#nlayer
                             colden/                                         #nlayer
                             (tlayer*mmw*atm.c.amu*atm.c.k_b))  )          #nlayer)].T
-
-            TAUGAS[:,:,0] += ADDTAU
-
-            if plot_opacity: opt_figure.line(1e4/opacityclass.wno, ADDTAU[plot_layer,:], alpha=0.7,legend_label=m[0]+m[1], line_width=3, color=colors[c],
-            muted_color=colors[c], muted_alpha=0.2)
-
-            if return_mode: taus_by_species[m[0]+m[1]] = ADDTAU
 
         #H2- 
         elif (m[0] == "H2-") and (m[1] == ""): 
@@ -203,11 +192,6 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
                             colden/                                        #nlayer
                             (mmw*atm.c.amu))   )                        #nlayer)]
 
-
-            TAUGAS[:,:,0] += ADDTAU
-            if plot_opacity: opt_figure.line(1e4/opacityclass.wno, ADDTAU[plot_layer,:], alpha=0.7,legend_label=m[0]+m[1], line_width=3, color=colors[c],
-            muted_color=colors[c], muted_alpha=0.2)
-            if return_mode: taus_by_species[m[0]+m[1]] = ADDTAU
         #everything else.. e.g. H2-H2, H2-CH4. Automatically determined by which molecules were requested
         else:
 
@@ -1614,10 +1598,10 @@ class RetrieveCKs():
             low_pts=[]
             high_pts=[]
             for pt_pair_ele in pt_pairs:
-            	if pt_pair_ele[-1]  == coordinate[2]:
-            	    low_pts += [pt_pair_ele]
-            	if pt_pair_ele[-1] == coordinate[3]:
-            	    high_pts += [pt_pair_ele]
+                if pt_pair_ele[-1]  == coordinate[2]:
+                    low_pts += [pt_pair_ele]
+                if pt_pair_ele[-1] == coordinate[3]:
+                    high_pts += [pt_pair_ele]
             
             ind_p_lowT = min(low_pts, key= lambda c: np.abs(np.log(c[-2])-np.log(coordinate[0])))
             
