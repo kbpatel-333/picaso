@@ -108,26 +108,28 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     a better methodology)
     """
     atm = atmosphere
-    nlayer = atm.c.nlayer
-    nwno = opacityclass.nwno
+    num_layers = atm.c.num_layers
+    num_wave_points = opacityclass.num_wave_points
 
     if return_mode:
         taus_by_species = {}
 
     if plot_opacity: 
-        plot_layer=int(nlayer/1.5)#np.size(tlayer)-1
+        plot_layer=int(num_layers/1.5)#np.size(tlayer)-1
         opt_figure = figure(x_axis_label = 'Wavelength', y_axis_label='TAUGAS in optics.py', 
         title = 'Opacity at T='+str(atm.layer['temperature'][plot_layer])+' P='+str(atm.layer['pressure'][plot_layer]/atm.c.pconv)
         ,y_axis_type='log',height=700, width=600)
 
     #====================== INITIALIZE TAUGAS#======================
-    
-    TAUGAS = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
-    TAURAY = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
-    TAUCLD = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
-    asym_factor_cld = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
-    single_scattering_cld = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss
-    raman_factor = np.zeros((nlayer,nwno,ngauss)) #nlayer x nwave x ngauss 
+    #Initialize matrices of size num_layers x num_wave_points x ngauss. 
+    # np.zeros has to be called each time to ensure that each matrix is distinct
+    # - otherwise changing one would change the others as well. 
+    TAUGAS = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss
+    TAURAY = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss
+    TAUCLD = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss
+    asym_factor_cld = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss
+    single_scattering_cld = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss
+    raman_factor = np.zeros((num_layers,num_wave_points,ngauss)) #num_layers x nwave x ngauss 
 
     c=1
     #set color scheme.. adding 3 for raman, rayleigh, and total
@@ -165,19 +167,19 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
 
         #H- Bound-Free
         if (m[0] == "H-") and (m[1] == "bf"):
-            ADDTAU = (opacityclass.continuum_opa['H-bf']*( #[(nlayer x nwno) *(
-                            atm.layer['mixingratios'][m[0]].values[:,np.newaxis] *  #nlayer
-                            colden/                     #nlayer
-                            (mmw*atm.c.amu))   )     #nlayer)]
+            ADDTAU = (opacityclass.continuum_opa['H-bf']*( #[(num_layers x num_wave_points) *(
+                            atm.layer['mixingratios'][m[0]].values[:,np.newaxis] *  #num_layers
+                            colden/                     #num_layers
+                            (mmw*atm.c.amu))   )     #num_layers)]
         
         #H- Free-Free
         elif (m[0] == "H-") and (m[1] == "ff"):
-            ADDTAU = (opacityclass.continuum_opa['H-ff']*(    #[(nlayer x nwno) *(
-                            player*                                       #nlayer
+            ADDTAU = (opacityclass.continuum_opa['H-ff']*(    #[(num_layers x num_wave_points) *(
+                            player*                                       #num_layers
                             atm.layer['mixingratios']['H'].values[:,np.newaxis] *
-                            atm.layer['electrons'][:,np.newaxis] *#nlayer
-                            colden/                                         #nlayer
-                            (tlayer*mmw*atm.c.amu*atm.c.k_b))  )          #nlayer)].T
+                            atm.layer['electrons'][:,np.newaxis] *#num_layers
+                            colden/                                         #num_layers
+                            (tlayer*mmw*atm.c.amu*atm.c.k_b))  )          #num_layers)].T
 
         #H2- 
         elif (m[0] == "H2-") and (m[1] == ""): 
@@ -185,21 +187,21 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
             #this is a hefty matrix multiplication to make sure that we are 
             #multiplying each column of the opacities by the same 1D vector (as opposed to traditional 
             #matrix multiplication). This is the reason for the transposes.
-            ADDTAU = (opacityclass.continuum_opa['H2-']*(    #[(nlayer x nwno) *(
-                            player*                                      #nlayer
+            ADDTAU = (opacityclass.continuum_opa['H2-']*(    #[(num_layers x num_wave_points) *(
+                            player*                                      #num_layers
                             atm.layer['mixingratios']['H2'].values[:,np.newaxis] *
-                            atm.layer['electrons'][:,np.newaxis] *  #nlayer
-                            colden/                                        #nlayer
-                            (mmw*atm.c.amu))   )                        #nlayer)]
+                            atm.layer['electrons'][:,np.newaxis] *  #num_layers
+                            colden/                                        #num_layers
+                            (mmw*atm.c.amu))   )                        #num_layers)]
 
         #everything else.. e.g. H2-H2, H2-CH4. Automatically determined by which molecules were requested
         else:
 
             #calculate opacity
-            ADDTAU = (opacityclass.continuum_opa[m[0]+m[1]] * ( #[(nlayer x nwno) *(
-                                COEF1[:,np.newaxis]*                                          #nlayer
-                                atm.layer['mixingratios'][m[0]].values[:,np.newaxis]  *                #nlayer
-                                atm.layer['mixingratios'][m[1]].values[:,np.newaxis]  )  )          #nlayer)]
+            ADDTAU = (opacityclass.continuum_opa[m[0]+m[1]] * ( #[(num_layers x num_wave_points) *(
+                                COEF1[:,np.newaxis]*                                          #num_layers
+                                atm.layer['mixingratios'][m[0]].values[:,np.newaxis]  *                #num_layers
+                                atm.layer['mixingratios'][m[1]].values[:,np.newaxis]  )  )          #num_layers)]
 
             TAUGAS[:,:,0] += ADDTAU
             if plot_opacity: opt_figure.line(1e4/opacityclass.wno, ADDTAU[plot_layer,:], alpha=0.7,legend_label=m[0]+m[1], line_width=3, color=colors[c],
@@ -218,7 +220,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     if ngauss == 1:  
         for m in atm.molecules:
 
-            ADDTAU = (opacityclass.molecular_opa[m] * ( #[(nlayer x nwno) *(
+            ADDTAU = (opacityclass.molecular_opa[m] * ( #[(num_layers x num_wave_points) *(
                         colden*
                         atm.layer['mixingratios'][m].values[:,np.newaxis]  / 
                         mmw) )
@@ -231,15 +233,15 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
 
     elif ngauss > 1: 
         for igauss in range(ngauss):
-            ADDTAU = (opacityclass.molecular_opa[:,:,igauss] * ( # nlayer x nwave x ngauss
+            ADDTAU = (opacityclass.molecular_opa[:,:,igauss] * ( # num_layers x nwave x ngauss
                         colden/
                         mmw) )
             TAUGAS[:,:,igauss] += ADDTAU
     
     #====================== ADD RAYLEIGH OPACITY======================  
     for m in atm.rayleigh_molecules:
-        ray_matrix = np.array([opacityclass.rayleigh_opa[m]]*nlayer)
-        ADDTAU = (ray_matrix * ( #[(nwno x nlayer) *(
+        ray_matrix = np.array([opacityclass.rayleigh_opa[m]]*num_layers)
+        ADDTAU = (ray_matrix * ( #[(num_wave_points x num_layers) *(
                     colden*
                     atm.layer['mixingratios'][m].values[:,np.newaxis] / #removing this bc of opa unit change *atm.weights[m].values[0]/ 
                     mmw))
@@ -261,7 +263,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     #OKLOPCIC OPACITY
     if raman == 0 :
         raman_db = opacityclass.raman_db
-        raman_factor[:,:,0] = compute_raman(nwno, nlayer,opacityclass.wno, 
+        raman_factor[:,:,0] = compute_raman(num_wave_points, num_layers,opacityclass.wno, 
             opacityclass.raman_stellar_shifts, atm.layer['temperature'], raman_db['c'].values,
                 raman_db['ji'].values, raman_db['deltanu'].values)
         if plot_opacity: opt_figure.line(1e4/opacityclass.wno, raman_factor[plot_layer,:,0]*TAURAY[plot_layer,:,0], alpha=0.7,legend_label='Shifted Raman', line_width=3, color=colors[c],
@@ -269,13 +271,13 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
         raman_factor[:,:,0] = np.minimum(raman_factor[:,:,0], raman_factor[:,:,0]*0+0.99999)
     #POLLACK OPACITY
     elif raman ==1: 
-        raman_factor[:,:,0] = raman_pollack(nlayer,1e4/opacityclass.wno)
+        raman_factor[:,:,0] = raman_pollack(num_layers,1e4/opacityclass.wno)
         raman_factor[:,:,0] = np.minimum(raman_factor[:,:,0], raman_factor[:,:,0]*0+0.99999)  
         if plot_opacity: opt_figure.line(1e4/opacityclass.wno, raman_factor[plot_layer,:,0]*TAURAY[plot_layer,:,0], alpha=0.7,legend_label='Shifted Raman', line_width=3, color=colors[c],
                 muted_color=colors[c], muted_alpha=0.2)
     #NOTHING
     else: 
-        raman_factor = 0.99999 + np.zeros((nlayer, nwno,ngauss))
+        raman_factor = 0.99999 + np.zeros((num_layers, num_wave_points, ngauss))
 
     #fill rest of gauss points
     for igauss in range(1,ngauss):raman_factor[:,:,igauss] = raman_factor[:,:,0]
@@ -322,7 +324,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     W0_no_raman = (TAURAY*0.99999 + TAUCLD*single_scattering_cld) / (TAUGAS + TAURAY + TAUCLD) #TOTAL single scattering 
 
     #sum up taus starting at the top, going to depth
-    TAU = np.zeros((nlayer+1, nwno,ngauss))
+    TAU = np.zeros((num_layers+1, num_wave_points,ngauss))
     for igauss in range(ngauss): TAU[1:,:,igauss]=numba_cumsum(DTAU[:,:,igauss])
 
     if plot_opacity:
@@ -357,7 +359,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
             for igauss in range(ngauss): COSB[:,:,igauss] = atm.layer['cloud']['g0']
             for igauss in range(ngauss): W0[:,:,igauss] = atm.layer['cloud']['w0']
             W0_no_raman = W0
-            TAU = np.zeros((nlayer+1, nwno,ngauss))
+            TAU = np.zeros((num_layers+1, num_wave_points,ngauss))
             for igauss in range(ngauss): TAU[1:,:,igauss]=numba_cumsum(DTAU[:,:,igauss])
     #====================== D-Eddington Approximation======================
     if delta_eddington:
@@ -378,7 +380,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
         dtau_dedd=DTAU*(1.-W0*f_deltaM) 
 
         #sum up taus starting at the top, going to depth
-        tau_dedd = np.zeros((nlayer+1, nwno, ngauss))
+        tau_dedd = np.zeros((num_layers+1, num_wave_points, ngauss))
         for igauss in range(ngauss): tau_dedd[1:,:,igauss]=numba_cumsum(dtau_dedd[:,:,igauss])
     
         #returning the terms used in 
@@ -394,7 +396,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
 
 
 @jit(nopython=True, cache=True)
-def compute_raman(nwno, nlayer, wno, stellar_shifts, tlayer, cross_sections, j_initial, deltanu):
+def compute_raman(num_wave_points, num_layers, wno, stellar_shifts, tlayer, cross_sections, j_initial, deltanu):
     """
     The Ramam scattering will alter the rayleigh scattering. The returned value is 
     modified single scattering albedo. 
@@ -409,16 +411,16 @@ def compute_raman(nwno, nlayer, wno, stellar_shifts, tlayer, cross_sections, j_i
     Will be added to the rayleigh scattering as : TAURAY*RAMAN
     Parameters
     ----------
-    nwno : int 
+    num_wave_points : int 
         Number of wave points
-    nlayer : int 
+    num_layers : int 
         Number of layers 
     wno : array
         Array of output grid of wavenumbers
     stellar_shifts : ndarray 
         Array of floats that has dimensions (n wave pts x n J levels: 0-9)
     tlayer : array 
-        Array of floats that has dimensions nlayer 
+        Array of floats that has dimensions num_layers 
     cross_sections : ndarray 
         The row of "C's" from Antonija's table. 
     j_initial : ndarray 
@@ -426,14 +428,14 @@ def compute_raman(nwno, nlayer, wno, stellar_shifts, tlayer, cross_sections, j_i
     deltanu : ndarray
         The row of delta nu's from Antonia's table
     """
-    raman_sigma_w_shift = np.zeros(( nlayer,nwno))
-    raman_sigma_wo_shift = np.zeros(( nlayer,nwno))
-    rayleigh_sigma = np.zeros(( nlayer,nwno))
+    raman_sigma_w_shift = np.zeros(( num_layers,num_wave_points))
+    raman_sigma_wo_shift = np.zeros(( num_layers,num_wave_points))
+    rayleigh_sigma = np.zeros(( num_layers,num_wave_points))
 
     #first calculate the j fraction at every layer 
 
     number_of_Js = 10 #(including 0)
-    j_at_temp = np.zeros((number_of_Js,nlayer))
+    j_at_temp = np.zeros((number_of_Js,num_layers))
     for i in range(number_of_Js):
         j_at_temp[i,:] = j_fraction(i,tlayer)
     
@@ -543,7 +545,7 @@ def j_fraction(j,T):
     return partition_function(j,T)/partition_sum(T)
 
 #@jit(nopython=True, cache=True)
-def raman_pollack(nlayer,wave):
+def raman_pollack(num_layers,wave):
     """
     Mystery raman scattering. Couldn't figure out where it came from.. so discontinuing. 
     Currently function doesnt' totally work. In half fortran-half python. Legacy from 
@@ -608,8 +610,8 @@ def raman_pollack(nlayer,wave):
                         sep='\s+', header=None, names = ['w','f'])
     #fill in matrix to match real raman format
     interp_raman = np.interp(wave, dat['w'].values, dat['f'].values, )
-    raman_factor = np.zeros((nlayer, len(wave)))
-    for i in range(nlayer): 
+    raman_factor = np.zeros((num_layers, len(wave)))
+    for i in range(num_layers): 
         raman_factor[i,:] = interp_raman#return flipped values for raman
     return  raman_factor 
 
@@ -719,7 +721,7 @@ class RetrieveCKs():
         #self.abunds = np.reshape(abunds,(self.max_pc,self.max_tc,max_ele),order='F')
         end_window = int(max_windows/3)
         if not deq:
-            self.nwno = int(data.iloc[end_abunds,1])
+            self.num_wave_points = int(data.iloc[end_abunds,1])
  
             self.wno = (data.iloc[end_abunds:end_abunds+end_window,0:3].astype(float)).values.ravel(
         )[2:]
@@ -764,7 +766,7 @@ class RetrieveCKs():
             #want the axes to be [npressure, ntemperature, nwave, ngauss ]
             kappa = kappa.swapaxes(1,3)
             kappa = kappa.swapaxes(0,2)
-            self.kappa = kappa[:, :, 0:self.nwno, 0:self.ngauss] 
+            self.kappa = kappa[:, :, 0:self.num_wave_points, 0:self.ngauss] 
 
         #finally add pressure/temperature scale to abundances
         self.full_abunds['pressure']= self.pressures[self.pressures>0]
@@ -802,7 +804,7 @@ class RetrieveCKs():
             abunds = abunds + last
             abunds = np.reshape(abunds,(self.max_pc,self.max_tc,max_ele),order='F')
             
-            self.nwno = int(data.iloc[end_abunds,1])
+            self.num_wave_points = int(data.iloc[end_abunds,1])
             
             end_window = int(max_windows/3)
             self.wno = (data.iloc[end_abunds:end_abunds+end_window,0:3].astype(float)).values.ravel()[2:]
@@ -856,7 +858,7 @@ class RetrieveCKs():
             #want the axes to be [npressure, ntemperature, nwave, ngauss ]
                 kappa = kappa.swapaxes(1,3)
                 kappa = kappa.swapaxes(0,2)
-                self.kappa = kappa[:, :, 0:self.nwno, 0:self.ngauss] 
+                self.kappa = kappa[:, :, 0:self.num_wave_points, 0:self.ngauss] 
             
             #finally add pressure/temperature scale to abundances
                 self.full_abunds['pressure']= self.pressures[self.pressures>0]
@@ -913,7 +915,7 @@ class RetrieveCKs():
             #want the axes to be [npressure, ntemperature, nwave, ngauss ]
                 kappa = kappa.swapaxes(1,3)
                 kappa = kappa.swapaxes(0,2)
-                self.kappa = kappa[:, :, 0:self.nwno, 0:self.ngauss] 
+                self.kappa = kappa[:, :, 0:self.num_wave_points, 0:self.ngauss] 
 
             #finally add pressure/temperature scale to abundances
                 self.full_abunds['pressure']= self.pressures[self.pressures>0]
@@ -940,7 +942,7 @@ class RetrieveCKs():
             abunds = np.reshape(abunds,(self.max_pc,self.max_tc,max_ele),order='F')
         
 
-            self.nwno = int(data.iloc[end_abunds,0])
+            self.num_wave_points = int(data.iloc[end_abunds,0])
             
 
             end_window = int(max_windows/3)
@@ -994,7 +996,7 @@ class RetrieveCKs():
             #want the axes to be [npressure, ntemperature, nwave, ngauss ]
                 kappa = kappa.swapaxes(1,3)
                 kappa = kappa.swapaxes(0,2)
-                self.kappa = kappa[:, :, 0:self.nwno, 0:self.ngauss] 
+                self.kappa = kappa[:, :, 0:self.num_wave_points, 0:self.ngauss] 
             
             #finally add pressure/temperature scale to abundances
                 self.full_abunds['pressure']= self.pressures[self.pressures>0]
@@ -1056,7 +1058,7 @@ class RetrieveCKs():
             #want the axes to be [npressure, ntemperature, nwave, ngauss ]
                 kappa = kappa.swapaxes(1,3)
                 kappa = kappa.swapaxes(0,2)
-                self.kappa = kappa[:, :, 0:self.nwno, 0:self.ngauss] 
+                self.kappa = kappa[:, :, 0:self.num_wave_points, 0:self.ngauss] 
             
             #finally add pressure/temperature scale to abundances
                 self.full_abunds['pressure']= self.pressures[self.pressures>0]
@@ -1094,7 +1096,7 @@ class RetrieveCKs():
         abunds = abunds + last
         #abunds = np.reshape(abunds,(self.max_pc,self.max_tc,max_ele),order='F')
 
-        #self.nwno = int(data.iloc[end_abunds,1])
+        #self.num_wave_points = int(data.iloc[end_abunds,1])
 
         end_window = int(max_windows/3)
         #self.wno = (data.iloc[end_abunds:end_abunds+end_window,0:3].astype(float)).values.ravel()[2:]
@@ -1197,7 +1199,7 @@ class RetrieveCKs():
     def get_pre_mix_ck(self,atmosphere):
         """
         Takes in atmosphere profile and returns an array which is 
-        nlayer by ngauss by nwno
+        num_layers by ngauss by num_wave_points
         """
         #
         p = atmosphere.layer['pressure']/atmosphere.c.pconv
@@ -1303,7 +1305,7 @@ class RetrieveCKs():
                                     np.array(self.kappa_co),np.array(self.kappa_back),np.array(mix_ch4),np.array(mix_nh3),np.array(mix_h2o),
                                     np.array(mix_co),np.array(mix_rest),
                                     np.array(self.gauss_pts),np.array(self.gauss_wts),indices)
-        kappa = np.zeros(shape=(len(mix_co)-1,self.nwno,self.ngauss))
+        kappa = np.zeros(shape=(len(mix_co)-1,self.num_wave_points,self.ngauss))
         # now perform the old nearest neighbor interpolation to produce final opacities
         for i in range(len(mix_co)-1):
             kappa[i,:,:] = (((1-t_interp[i])* (1-p_interp[i]) * kappa_mixed[i,:,:,0]) +
@@ -1408,7 +1410,7 @@ class RetrieveCKs():
                                     np.array(self.kappa_h2),np.array(self.kappa_ph3),np.array(self.kappa_c2h2),np.array(self.kappa_na),np.array(self.kappa_k),np.array(self.kappa_tio),np.array(self.kappa_vo),np.array(self.kappa_feh),np.array(self.kappa_so2),np.array(self.kappa_h2s),mix_co,mix_h2o,mix_ch4,mix_nh3,
                                     mix_co2,mix_n2,mix_hcn,mix_h2,mix_ph3,mix_c2h2,mix_na,mix_k,mix_tio,mix_vo,mix_feh, mix_so2,mix_h2s,
                                     np.array(self.gauss_pts),np.array(self.gauss_wts),indices)
-        kappa = np.zeros(shape=(len(mix_co)-1,self.nwno,self.ngauss))
+        kappa = np.zeros(shape=(len(mix_co)-1,self.num_wave_points,self.ngauss))
         
         # now perform the old nearest neighbor interpolation to produce final opacities
         for i in range(len(mix_co)-1):
@@ -1422,7 +1424,7 @@ class RetrieveCKs():
     def get_mixing_indices(self,atmosphere):
         """
         Takes in atmosphere profile and returns an array which is 
-        nlayer by ngauss by nwno
+        num_layers by ngauss by num_wave_points
         """
         #
         
@@ -1497,9 +1499,9 @@ class RetrieveCKs():
     def get_pre_mix_ck_nearest(self,atmosphere):
         """
         Takes in atmosphere profile and returns an array which is 
-        nlayer by ngauss by nwno
+        num_layers by ngauss by num_wave_points
         """
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
 
@@ -1525,9 +1527,9 @@ class RetrieveCKs():
     def get_pre_mix_ck_sm(self,atmosphere):
         """
         Takes in atmosphere profile and returns an array which is 
-        nlayer by ngauss by nwno
+        num_layers by ngauss by num_wave_points
         """
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
 
@@ -1717,7 +1719,7 @@ class RetrieveCKs():
 
         log_kappa_interpolated = np.zeros_like(kappa_lowp_lowt)
         
-        for i in range(nlayer):
+        for i in range(num_layers):
             log_kappa_interpolated[i,:,:] = (1.-tt[i])*(1.-u[i])*kappa_lowp_lowt[i,:,:] + tt[i]*(1.-u[i])*kappa_lowp_hight[i,:,:] +tt[i]*u[i]*kappa_highp_hight[i,:,:]+ (1.-tt[i])*u[i]*kappa_highp_lowt[i,:,:]
         
         
@@ -1802,11 +1804,11 @@ class RetrieveCKs():
         kco = kco.swapaxes(2,3)
 
 
-        self.kappa_back = kback[:,:,0:self.nwno,0:self.ngauss]
-        self.kappa_h2o = kh2o[:,:,0:self.nwno,0:self.ngauss]
-        self.kappa_co = kco[:,:,0:self.nwno,0:self.ngauss]
-        self.kappa_nh3 = knh3[:,:,0:self.nwno,0:self.ngauss]
-        self.kappa_ch4 = kch4[:,:,0:self.nwno,0:self.ngauss]
+        self.kappa_back = kback[:,:,0:self.num_wave_points,0:self.ngauss]
+        self.kappa_h2o = kh2o[:,:,0:self.num_wave_points,0:self.ngauss]
+        self.kappa_co = kco[:,:,0:self.num_wave_points,0:self.ngauss]
+        self.kappa_nh3 = knh3[:,:,0:self.num_wave_points,0:self.ngauss]
+        self.kappa_ch4 = kch4[:,:,0:self.num_wave_points,0:self.ngauss]
 
 
     def load_kcoeff_arrays_first(self,path,gases_fly):
@@ -1946,21 +1948,21 @@ class RetrieveCKs():
         wvno_new,dwni_new = np.loadtxt(path+"wvno_661",usecols=[0,1],unpack=True)
         self.wno = wvno_new
         self.delta_wno = dwni_new
-        self.nwno = len(wvno_new)
+        self.num_wave_points = len(wvno_new)
 
     '''
     def get_continuum(self, atmosphere):
         #open connection 
         cur, conn = self.open_local()
 
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
 
         cia_molecules = atmosphere.continuum_molecules
        
 
-        self.continuum_opa = {key[0]+key[1]:np.zeros((nlayer,self.nwno)) for key in cia_molecules}
+        self.continuum_opa = {key[0]+key[1]:np.zeros((num_layers,self.num_wave_points)) for key in cia_molecules}
 
         #continuum
         #find nearest temp for cia grid
@@ -2019,7 +2021,7 @@ class RetrieveCKs():
         for i in self.continuum_opa.keys():
             y2_array = self.cia_splines[i]
             
-            for jlow, jhigh,ind in zip(tcia_low, tcia_high,range(nlayer)):
+            for jlow, jhigh,ind in zip(tcia_low, tcia_high,range(num_layers)):
                 h = tcia_high[ind] - tcia_low[ind]
                 a = (tcia_high[ind] - tlayer[ind])/h
                 b = (tlayer[ind]- tcia_low[ind])/h
@@ -2041,14 +2043,14 @@ class RetrieveCKs():
         #open connection 
         cur, conn = self.open_local()
     
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
     
         cia_molecules = atmosphere.continuum_molecules
 
     
-        self.continuum_opa = {key[0]+key[1]:np.zeros((nlayer,self.nwno)) for key in cia_molecules}
+        self.continuum_opa = {key[0]+key[1]:np.zeros((num_layers,self.num_wave_points)) for key in cia_molecules}
         #continuum
         #find nearest temp for cia grid
     
@@ -2105,7 +2107,7 @@ class RetrieveCKs():
         for i in self.continuum_opa.keys():
             #y2_array = self.cia_splines[i]
             
-            for jlow, jhigh,ind in zip(tcia_low, tcia_high,range(nlayer)):
+            for jlow, jhigh,ind in zip(tcia_low, tcia_high,range(num_layers)):
                 h = tcia_high[ind] - tcia_low[ind]
                 a = (tcia_high[ind] - tlayer[ind])/h
                 b = (tlayer[ind]- tcia_low[ind])/h
@@ -2201,7 +2203,7 @@ class RetrieveOpacities():
         Wavenumber grid from opacity database (CGS cm-1)
     wave : array 
         Wavelength grid from opacity database (micron)
-    nwno : int 
+    num_wave_points : int 
         Number of wavenumber points in the grid 
     cia_temps : array 
         CIA temps available from database 
@@ -2318,7 +2320,7 @@ class RetrieveOpacities():
             self.loc = np.where(((self.wave>min(wave_range)) & (self.wave<max(wave_range))))
         self.wave = self.wave[self.loc]
         self.wno = self.wno[self.loc]
-        self.nwno = np.size(self.wno)
+        self.num_wave_points = np.size(self.wno)
 
         conn.close()
 
@@ -2530,14 +2532,14 @@ class RetrieveOpacities():
         #open connection 
         cur, conn = self.db_connect()
         
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
         molecules = atmosphere.molecules
         cia_molecules = atmosphere.continuum_molecules        
         #struture opacity dictionary
-        self.molecular_opa = {key:np.zeros((nlayer, self.nwno)) for key in molecules}
-        self.continuum_opa = {key[0]+key[1]:np.zeros((nlayer, self.nwno)) for key in cia_molecules}
+        self.molecular_opa = {key:np.zeros((num_layers, self.num_wave_points)) for key in molecules}
+        self.continuum_opa = {key[0]+key[1]:np.zeros((num_layers, self.num_wave_points)) for key in cia_molecules}
 
         #MOLECULAR
         #get parameters we need to interpolate molecular opacity 
@@ -2557,7 +2559,7 @@ class RetrieveOpacities():
                 fac =1
             else: 
                 fac = exclude_mol[i]
-            for ind in range(nlayer): # multiply by avogadro constant
+            for ind in range(num_layers): # multiply by avogadro constant
             #these where statements are used for non zero arrays 
             #however they should ultimately be put into opacity factory so it doesnt slow 
             #this down
@@ -2569,7 +2571,7 @@ class RetrieveOpacities():
                 log_abunds3 = np.log10(np.where(log_abunds3!=0,log_abunds3,1e-50))
                 log_abunds4 = data[i+'_'+str(1+i_t_low_p_hi[ind])]
                 log_abunds4 = np.log10(np.where(log_abunds4!=0,log_abunds4,1e-50))
-                #nlayer x nwno
+                #num_layers x num_wave_points
                 cx = 10**(((1-t_interp[ind])* (1-p_interp[ind]) * log_abunds1) +
                      ((t_interp[ind])  * (1-p_interp[ind]) * log_abunds2) + 
                      ((t_interp[ind])  * (p_interp[ind])   * log_abunds3) + 
@@ -2585,7 +2587,7 @@ class RetrieveOpacities():
 
 
         for i in self.continuum_opa.keys():
-            for j,ind in zip(tcia,range(nlayer)):
+            for j,ind in zip(tcia,range(num_layers)):
                 self.continuum_opa[i][ind,:] = data[i+'_'+str(j)][::self.resample][self.loc]
   
         conn.close() 
@@ -2597,7 +2599,7 @@ class RetrieveOpacities():
         #open connection 
         cur, conn = self.db_connect()
         
-        nlayer =atmosphere.c.nlayer
+        num_layers =atmosphere.c.num_layers
         tlayer =atmosphere.layer['temperature']
         player = atmosphere.layer['pressure']/atmosphere.c.pconv
 
@@ -2605,8 +2607,8 @@ class RetrieveOpacities():
         cia_molecules = atmosphere.continuum_molecules
 
         #struture opacity dictionary
-        self.molecular_opa = {key:np.zeros((nlayer, self.nwno)) for key in molecules}
-        self.continuum_opa = {key[0]+key[1]:np.zeros((nlayer, self.nwno)) for key in cia_molecules}
+        self.molecular_opa = {key:np.zeros((num_layers, self.num_wave_points)) for key in molecules}
+        self.continuum_opa = {key[0]+key[1]:np.zeros((num_layers, self.num_wave_points)) for key in cia_molecules}
 
         #this will make getting opacities faster 
         #this is getting the ptid corresponding to the pairs
@@ -2621,7 +2623,7 @@ class RetrieveOpacities():
 
             data = self._get_query_molecular(ind_pt,molecules,cur)
 
-        #structure it into a dictionary e.g. {'H2O':ndarray(nwave x nlayer), 'CH4':ndarray(nwave x nlayer)}.. 
+        #structure it into a dictionary e.g. {'H2O':ndarray(nwave x num_layers), 'CH4':ndarray(nwave x num_layers)}.. 
         for i in self.molecular_opa.keys():
            #fac is a multiplier for users to test the optical contribution of 
             #each of their molecules
@@ -2630,7 +2632,7 @@ class RetrieveOpacities():
                 fac =1
             else: 
                 fac = exclude_mol[i]
-            for j,ind in zip(ind_pt,range(nlayer)): # multiply by avogadro constant 
+            for j,ind in zip(ind_pt,range(num_layers)): # multiply by avogadro constant 
                 self.molecular_opa[i][ind, :] = fac*data[i+'_'+str(j)]*6.02214086e+23 #add to opacity bundle
 
         #continuum
@@ -2645,7 +2647,7 @@ class RetrieveOpacities():
 
 
         for i in self.continuum_opa.keys():
-            for j,ind in zip(tcia,range(nlayer)):
+            for j,ind in zip(tcia,range(num_layers)):
                 self.continuum_opa[i][ind,:] = data[i+'_'+str(j)][::self.resample][self.loc]
 
         conn.close() 
